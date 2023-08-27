@@ -32,11 +32,11 @@ transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
-trainset = torchvision.datasets.ImageFolder(root='/home/ty/桌面/CUB_200_2011/7:3/train', transform=transform_train)
+trainset = torchvision.datasets.ImageFolder(root='./train', transform=transform_train)
 # read dataset
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE,
                                           shuffle=True, num_workers=8, drop_last=False)
-testset = torchvision.datasets.ImageFolder(root='/home/ty/桌面/CUB_200_2011/7:3/test', transform=transform_test)
+testset = torchvision.datasets.ImageFolder(root='./test', transform=transform_test)
 
 testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE,
                                          shuffle=False, num_workers=8, drop_last=False)
