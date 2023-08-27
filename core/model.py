@@ -49,9 +49,9 @@ class BasicConv(nn.Module):
 class FRE(nn.Module):
     def __init__(self):
         super(FRE, self).__init__()
-        self.attn_hop = 2048
-        self.spaConv = nn.Conv2d(2048, 196, 1)
-        self.spaConv1 = nn.Conv2d(2048, 49, 1)
+        self.attn = 2048
+        self.spa = nn.Conv2d(2048, 196, 1)
+        self.spa1 = nn.Conv2d(2048, 49, 1)
         self.fc1 = nn.Linear(196, 196, bias=False)
         self.fc2 = nn.Linear(196, 2048, bias=False)
         self.fc11 = nn.Linear(49, 49, bias=False)
@@ -61,47 +61,44 @@ class FRE(nn.Module):
         self.softmax = nn.Softmax(dim=2)
     def forward(self, x):
        if x.shape[2] == 14:
-          emb = self.spaConv(x)  # [bsz, 2400, 8, 8]#12,2400,14,14
-          size = emb.size()  # [bsz, 2400, 8, 8]
-          unfolded_embedding = emb.view(size[0], 196, -1)  # [bsz, 2400, 64]12,2400,196=14*14
-          emb = unfolded_embedding.transpose(1, 2).contiguous()  # [bsz, 64, 2400]#12,196,2400
-          unfolded_embedding = emb.view(-1, 196)  # [bsz*64, 2400]#2352=12*196,2400
-          hbar_img = self.relu(self.fc1(self.drop(unfolded_embedding)))  # [bsz*64, attn-unit]#12,59,2400
-          attn_img = self.fc2(hbar_img).view(size[0], size[2] * size[3], self.attn_hop)  # [bsz, 64, hop]#12,141600
-          attn_img = torch.transpose(attn_img, 1, 2).contiguous()  # [bsz, hop, 64]#12,59,196
-          out_img = torch.bmm(attn_img, emb).unsqueeze(3)  # [bsz, hop, 2400]#12,256,2400.1
+          emb = self.spa(x) 
+          size = emb.size() 
+          embedding = emb.view(size[0], 196, -1) 
+          emb = embedding.transpose(1, 2).contiguous() 
+          embedding = emb.view(-1, 196)  
+          hba = self.relu(self.fc1(self.drop(embedding))) 
+          _img = self.fc2(hba).view(size[0], size[2] * size[3], self.attn) 
+          _img = torch.transpose(_img, 1, 2).contiguous()
+          out_img = torch.bmm(_img, emb).unsqueeze(3) 
           out_img = out_img.reshape(x.shape[0], x.shape[1], x.shape[2], x.shape[3])
        else:
-          emb = self.spaConv1(x)  # [bsz, 2400, 8, 8]#12,2400,14,14
+          emb = self.spa1(x)  # [bsz, 2400, 8, 8]
           size = emb.size()  # [bsz, 2400, 8, 8]
-          unfolded_embedding = emb.view(size[0], 49, -1)  # [bsz, 2400, 64]12,2400,196=14*14
-          emb = unfolded_embedding.transpose(1, 2).contiguous()  # [bsz, 64, 2400]#12,196,2400
-          unfolded_embedding = emb.view(-1, 49)  # [bsz*64, 2400]#2352=12*196,2400
-          hbar_img = self.relu(self.fc11(self.drop(unfolded_embedding)))  # [bsz*64, attn-unit]#12,59,2400
-          attn_img = self.fc22(hbar_img).view(size[0], size[2] * size[3], self.attn_hop)  # [bsz, 64, hop]#12,141600
-          attn_img = torch.transpose(attn_img, 1, 2).contiguous()  # [bsz, hop, 64]#12,59,196
-          out_img = torch.bmm(attn_img, emb).unsqueeze(3)  # [bsz, hop, 2400]#12,256,2400.1
+          embedding = emb.view(size[0], 49, -1) 
+          emb = embedding.transpose(1, 2).contiguous() 
+          embedding = emb.view(-1, 49) 
+          hba = self.relu(self.fc11(self.drop(embedding))) 
+          _img = self.fc22(hba).view(size[0], size[2] * size[3], self.attn)  
+          _img = torch.transpose(_img, 1, 2).contiguous() 
+          out_img = torch.bmm(_img, emb).unsqueeze(3)  
           out_img = out_img.reshape(x.shape[0], x.shape[1], x.shape[2], x.shape[3])
-       return out_img # 8,1614
+       return out_img 
+        
 class GCN(nn.Module):
 
-    def __init__(self, fpn_size=512, num_classes=59):
-        """
-        If building backbone without FPN, set fpn_size to None and MUST give
-        'inputs' and 'proj_size', the reason of these setting is to constrain the
-        dimension of graph convolutional network input.
-        """
+    def __init__(self, fpn=512, num_classes=59):
+ 
         super(GCN, self).__init__()
-        self.proj_size = fpn_size
+        self.proj = fpn
         total_num_selects = 4096
         num_joints = total_num_selects // 32
         A = torch.eye(num_joints) / 100 + 1 / 100
         self.adj1 = nn.Parameter(copy.deepcopy(A))
-        self.conv1 = nn.Conv1d(self.proj_size //4 , self.proj_size //4, 1)
-        self.batch_norm = nn.BatchNorm1d(self.proj_size //4)
+        self.conv1 = nn.Conv1d(self.proj //4 , self.proj //4, 1)
+        self.batch_norm = nn.BatchNorm1d(self.proj //4)
 
-        self.conv_q1 = nn.Conv1d(self.proj_size //4, self.proj_size, 1)
-        self.conv_k1 = nn.Conv1d(self.proj_size //4, self.proj_size, 1)
+        self.conv_q1 = nn.Conv1d(self.proj //4, self.proj, 1)
+        self.conv_k1 = nn.Conv1d(self.proj //4, self.proj, 1)
         self.alpha1 = nn.Parameter(torch.zeros(1))
 
 
@@ -212,14 +209,11 @@ class FREGNet(nn.Module):
         concat_out = torch.cat([part_feature1, feature1], dim=1)
 
         concat_out1 = torch.cat([part_feature, feature11], dim=1).view(batch,-1 , 128)#.transpose(1,2).contiguous()#8,4096，4
-        # print('123456', part_feature.shape, feature11.shape)
         Liner = self.Liner(concat_out1)
-        # print('1111', Liner.shape)
-        # concat_logits = self.GCNCombiner(feature,part_feature)
         concat_logits1 = self.concat_net(concat_out)
         concat_logits = self.GCNCombiner(Liner)
         raw_logits = resnet_out
-        # part_logits have the shape: B*N*200
+        # part_logits have the shape: B*N part*59
         part_logits = self.partcls_net(part_features).view(batch, self.topN, -1)
         return [raw_logits, concat_logits, concat_logits1, part_logits, top_n_index, top_n_prob]
 
