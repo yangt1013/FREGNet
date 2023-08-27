@@ -46,9 +46,9 @@ class BasicConv(nn.Module):
         if self.relu is not None:
             x = self.relu(x)
         return x
-class ASM(nn.Module):
+class FRE(nn.Module):
     def __init__(self):
-        super(ASM, self).__init__()
+        super(FRE, self).__init__()
         self.attn_hop = 2048
         self.spaConv = nn.Conv2d(2048, 196, 1)
         self.spaConv1 = nn.Conv2d(2048, 49, 1)
@@ -83,7 +83,7 @@ class ASM(nn.Module):
           out_img = torch.bmm(attn_img, emb).unsqueeze(3)  # [bsz, hop, 2400]#12,256,2400.1
           out_img = out_img.reshape(x.shape[0], x.shape[1], x.shape[2], x.shape[3])
        return out_img # 8,1614
-class GCNCombiner(nn.Module):
+class GCN(nn.Module):
 
     def __init__(self, fpn_size=512, num_classes=59):
         """
@@ -91,69 +91,50 @@ class GCNCombiner(nn.Module):
         'inputs' and 'proj_size', the reason of these setting is to constrain the
         dimension of graph convolutional network input.
         """
-        super(GCNCombiner, self).__init__()
+        super(GCN, self).__init__()
         self.proj_size = fpn_size
-        ### build one layer structure (with adaptive module)
-        self.fpn_size = fpn_size
-        self.proj_size = fpn_size
-        total_num_selects = 4096#1096#8912#128chagnshi
-        ### build one layer structure (with adaptive module)
+        total_num_selects = 4096
         num_joints = total_num_selects // 32
-        self.fc = nn.Linear(16, num_joints)
-        self.param_pool0 = nn.Linear(128, num_joints)
-
         A = torch.eye(num_joints) / 100 + 1 / 100
         self.adj1 = nn.Parameter(copy.deepcopy(A))
         self.conv1 = nn.Conv1d(self.proj_size //4 , self.proj_size //4, 1)
-        self.batch_norm1 = nn.BatchNorm1d(self.proj_size //4)
+        self.batch_norm = nn.BatchNorm1d(self.proj_size //4)
 
         self.conv_q1 = nn.Conv1d(self.proj_size //4, self.proj_size, 1)
         self.conv_k1 = nn.Conv1d(self.proj_size //4, self.proj_size, 1)
         self.alpha1 = nn.Parameter(torch.zeros(1))
 
-        ### merge information
-        self.param_pool1 = nn.Linear(num_joints, 1)
 
-        #### class predict
         self.dropout = nn.Dropout(p=0.5)
         self.classifier = nn.Sequential(nn.Linear(16384, 2048 * 5),
                                         nn.ELU(inplace=True),
                                         nn.Linear(2048 * 5 , num_classes))
 
-       # self.classifier1 = nn.Linear(self.proj_size //4, num_classes),
 
         self.tanh = nn.Tanh()
 
     def forward(self, x):
 
-        B= x.size(0)#8,4096,128
-        #hs = (x.view(B, -1, 128)).transpose(1, 2).contiguous()  # B, S', C --> B, C, S#8,128,128
-        #hs = self.param_pool0(hs)
-        #print(hs.shape)
-        #x = x.transpose(0,1).contiguous()
         ### adaptive adjacency
-        q1 = self.conv_q1(x).mean(1)#x:8,128,128, q1:8,128
-        k1 = self.conv_k1(x).mean(1)#8,128
-        A1 = self.tanh(q1.unsqueeze(-1) - k1.unsqueeze(1))#8,128,128
+        q1 = self.conv_q1(x).mean(1)
+        k1 = self.conv_k1(x).mean(1)
+        A1 = self.tanh(q1.unsqueeze(-1) - k1.unsqueeze(1))
 
-        A1 = self.adj1 + A1 * self.alpha1 # <0
+        A1 = self.adj1 + A1 * self.alpha1 
 
         ### graph convolution
-        hs = self.conv1(x)#.transpose(0,1).contiguous()
+        hs = self.conv1(x)
         hs = torch.matmul(hs, A1)
-        # print('qqq', hs.shape)
-        hs = self.batch_norm1(hs)
-        ### predict
-        #hs = self.param_pool1(hs)
+        hs = self.batch_norm(hs)
+        
         hs = self.dropout(hs)
-        hs = hs.flatten(1)#8,65536
+        hs = hs.flatten(1)
         hs = self.classifier(hs)
-       # hs1 = self.classifier1(hs)
 
-        return hs#,hs1
-class attention_net(nn.Module):
+        return hs
+class FREGNet(nn.Module):
     def __init__(self, topN=4):
-        super(attention_net, self).__init__()
+        super(FREGNet, self).__init__()
         self.pretrained_model = resnet.resnet50(pretrained=True)
         self.pretrained_model.avgpool = nn.AdaptiveAvgPool2d(1)
         self.pretrained_model.fc = nn.Linear(512 * 4, 59)
@@ -173,7 +154,7 @@ class attention_net(nn.Module):
         _, edge_anchors, _ = generate_default_anchor_maps()
         self.pad_side = 224
         self.edge_anchors = (edge_anchors + 224).astype(np.int_)
-        self.ASM = ASM()
+        self.FRE = FRE()
         self.classifier1 = nn.Sequential(
             nn.BatchNorm1d(2048 // 2),
             nn.Linear(2048 // 2, 448),
@@ -188,12 +169,12 @@ class attention_net(nn.Module):
             BasicConv(448, 2048 // 2, kernel_size=3, stride=1, padding=1, relu=True),
             nn.AdaptiveMaxPool2d(1)
         )
-        self.GCNCombiner = GCNCombiner()
+        self.GCNCombiner = GCN()
 
     def forward(self, x):
         batch = x.size(0)
         rpn_feature = self.pretrained_model(x)
-        resnet_out = self.ASM(rpn_feature)  # 8,1024,1,1
+        resnet_out = self.FRE(rpn_feature)  # 8,1024,1,1
         feature = self.avgpool(resnet_out)  # 16,2048,2,2
         feature11 = feature.view(feature.size(0),  feature.size(2) * feature.size(3), feature.size(1))
         feature1 = feature.view(feature.size(0), -1)
