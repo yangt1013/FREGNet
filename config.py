@@ -6,5 +6,5 @@ LR = 0.001
 WD = 1e-4
 SAVE_FREQ = 1
 resume = ''
-test_model = '/home/ty/桌面/5/NTS-Net-master (4)/models/20221113_104657/023.ckpt'
-save_dir = '/home/ty/桌面/FREGNet-FRE-GCN/results'
+test_model = ./models/20221113_104657/023.ckpt'
+save_dir = './results'
