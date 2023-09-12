@@ -43,13 +43,23 @@ Please cite our paper if you use FREGNet code in your work.
 ```bash
 ARGOS-Venice boat classification
 
-website：https://pan.baidu.com/s/1OHBMLMXvkKima1nK5gF-4A?pwd=GLPM 
-word：GLPM 
+website：https://pan.baidu.com/s/1FJ6j3MUQLqZYP2jpc2p7qA?pwd=fgko  
+word：fgko
 ```
 
 
 ## Game-of-ships dataset link:
 ```bash
-website：https://pan.baidu.com/s/1XkSwtPnxKblxZ6YQV4tEDA?pwd=GLPM 
-word：GLPM 
+website：https://pan.baidu.com/s/12SvLfHiWxHhEF1sEVDIvuQ?pwd=k2f8 
+word：k2f8
+```
+
+## Sea-ships dataset link:
+```bash
+website：http://www.lmars.whu.edu.cn/prof_web/shaozhenfeng/datasets/SeaShips%287000%29.zip
+```
+
+## SMD dataset link:
+```bash
+website：https://sites.google.com/site/dilipprasad/home/singapore-maritime-dataset
 ```
