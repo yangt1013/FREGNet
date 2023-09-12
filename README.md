@@ -47,7 +47,6 @@ website：https://pan.baidu.com/s/1FJ6j3MUQLqZYP2jpc2p7qA?pwd=fgko
 word：fgko
 ```
 
-
 ## Game-of-ships dataset link:
 ```bash
 website：https://pan.baidu.com/s/12SvLfHiWxHhEF1sEVDIvuQ?pwd=k2f8 
