@@ -1,4 +1,5 @@
 # FREGNet: Ship recognition based on feature respresentation enhancement and GCN combiner in complex environment
+[Paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10680454)
 
 ## Requirement
 python 3.9
